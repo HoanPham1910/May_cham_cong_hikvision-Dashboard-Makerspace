@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Access Control Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@700;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- ── Header ── -->
+  <header>
+    <div class="logo-area">
+      <div class="school-emblem">🎓</div>
+      <div class="logo-text">
+        <h1>Hệ Thống Điểm Danh</h1>
+        <p>Maker Space</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <div id="clock"></div>
+      <div class="live-badge"><span class="live-dot"></span><span>LIVE</span></div>
+    </div>
+  </header>
+
+  <div class="stripe-divider"></div>
+  <div class="error-msg" id="errorMsg"></div>
+
+  <!-- ── Stats ── -->
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-icon-wrap">👥</div>
+      <div class="stat-info"><label>Tổng sinh viên</label><div class="count" id="stat-users">—</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon-wrap">✅</div>
+      <div class="stat-info"><label>Check In hôm nay</label><div class="count" id="stat-in">—</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon-wrap">🚪</div>
+      <div class="stat-info"><label>Check Out hôm nay</label><div class="count" id="stat-out">—</div></div>
+    </div>
+  </div>
+
+  <!-- ── Page Tabs ── -->
+  <div class="page-tabs">
+    <button class="page-tab active" onclick="showPage('events',this)">📋 Nhật ký sự kiện</button>
+    <button class="page-tab"        onclick="showPage('users',this)">👤 Danh sách sinh viên</button>
+  </div>
+
+  <!-- ══════════ Events Page ══════════ -->
+  <div id="page-events">
+    <div class="events-layout">
+
+      <!-- LEFT: danh sách sự kiện -->
+      <div class="events-left">
+        <div class="controls">
+          <input type="date" id="dateInput" class="date-input">
+          <button class="btn btn-primary" onclick="fetchEvents()">↻ Làm mới</button>
+          <span id="countdown"></span>
+          <div class="filter-tabs">
+            <button class="tab active" data-filter="all"      onclick="setFilter('all',this)">Tất cả</button>
+            <button class="tab"        data-filter="checkIn"  onclick="setFilter('checkIn',this)">Check In</button>
+            <button class="tab"        data-filter="checkOut" onclick="setFilter('checkOut',this)">Check Out</button>
+          </div>
+        </div>
+
+        <div class="latest-banner" id="latestBanner" style="display:none">
+          <span class="latest-label">↳ Mới nhất</span>
+          <span class="latest-info" id="latestName"></span>
+          <span class="latest-time" id="latestTime"></span>
+        </div>
+
+        <div class="section-header">
+          <span class="section-title">Nhật Ký Sự Kiện</span>
+          <span class="event-count" id="eventCount"></span>
+        </div>
+
+        <div id="events-list">
+          <div class="status-msg">
+            <div class="spinner"></div>
+            <span>Đang tải dữ liệu...</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: cảnh báo -->
+      <div class="events-right">
+        <div class="warning-box">
+          <div class="section-header">
+            <span class="section-title">⚠️ Cảnh báo vắng mặt</span>
+          </div>
+          <table class="warning-table">
+            <thead>
+              <tr>
+                <th>Sinh viên</th>
+                <th>Số ngày vắng</th>
+              </tr>
+            </thead>
+            <tbody id="warning-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════ Users Page ══════════ -->
+  <div id="page-users" style="display:none">
+    <div class="section-header" style="margin-bottom:16px">
+      <span class="section-title">Danh Sách Sinh Viên</span>
+      <span class="event-count" id="userCount"></span>
+      <span id="avatarStorageInfo"
+            style="font-family:var(--mono);font-size:10px;color:var(--text-dim);background:var(--surface2);padding:4px 10px;border-radius:6px;border:1px solid var(--border)">
+      </span>
+    </div>
+    <div id="users-grid" class="user-grid">
+      <div class="status-msg"><div class="spinner"></div><span>Đang tải...</span></div>
+    </div>
+  </div>
+
+  <!-- ══════════ Attendance Modal ══════════ -->
+  <div class="modal-overlay" id="attendanceModal" style="display:none" onclick="closeModal(event)">
+    <div class="modal">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title"    id="modalName">—</div>
+          <div class="modal-subtitle" id="modalId">—</div>
+        </div>
+        <button class="modal-close"
+                onclick="document.getElementById('attendanceModal').style.display='none'">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="month-picker">
+          <input type="month" id="modalMonth" class="month-input">
+          <button class="btn btn-primary" onclick="loadAttendance()">Xem</button>
+          <button class="btn-setting"     onclick="SettingAttendance()">⚙ Cài đặt</button>
+          <button class="btn-setting"     onclick="loadAttendance()">Làm mới</button>
+        </div>
+        <div id="attendanceContent">
+          <div class="status-msg">Chọn tháng và nhấn Xem</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ Settings Modal ══════════ -->
+  <div class="settings-overlay" id="settingsModal" style="display:none"
+       onclick="closeSettingsModal(event)">
+    <div class="settings-modal" onclick="event.stopPropagation()">
+
+      <div class="settings-header">
+        <div class="settings-header-left">
+          <span class="settings-icon">⚙️</span>
+          <div class="settings-title">Cài đặt lịch chuyên cần</div>
+          <div class="settings-subtitle" id="settingsSubtitle">Nhân viên — — · Tháng — —</div>
+        </div>
+        <button class="settings-close"
+                onclick="document.getElementById('settingsModal').style.display='none'">✕</button>
+      </div>
+
+      <div class="settings-body">
+
+        <!-- Giờ ca mặc định -->
+        <div class="settings-section">
+          <div class="settings-section-title">Giờ ca mặc định cho tháng</div>
+          <div class="time-row">
+            <div class="time-field">
+              <label>🟢 Giờ vào ca</label>
+              <input type="time" id="settingSignIn" value="08:00">
+              <div class="time-field-hint">Giờ bắt đầu ca làm việc</div>
+            </div>
+            <div class="time-field">
+              <label>🔴 Giờ ra ca</label>
+              <input type="time" id="settingSignOut" value="17:00">
+              <div class="time-field-hint">Giờ kết thúc ca làm việc</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Ngưỡng đi trễ -->
+        <div class="settings-section">
+          <div class="settings-section-title">Ngưỡng đi trễ</div>
+          <div class="grace-row">
+            <label>
+              Cho phép trễ tối đa
+              <span class="grace-value" id="graceDisplay">120 phút</span>
+            </label>
+            <input type="range" id="graceSlider" min="0" max="240" step="15" value="120"
+                   oninput="updateGraceDisplay(this)">
+            <div class="grace-hint">
+              Sinh viên check-in sau <strong id="graceHintTime">10:00</strong> sẽ bị tính là
+              <strong>đi trễ</strong>. (Giờ vào + ngưỡng trễ)
+            </div>
+          </div>
+        </div>
+
+        <!-- Ghi đè từng ngày -->
+        <div class="settings-section">
+          <div class="settings-section-title">Ghi đè giờ từng ngày</div>
+          <div class="override-notice">
+            💡 Để trống = dùng giờ mặc định. Nhập giờ riêng nếu ca ngày đó thay đổi.
+          </div>
+          <div style="max-height:240px;overflow-y:auto;border:1.5px solid var(--border);border-radius:10px">
+            <table class="override-table">
+              <thead>
+                <tr><th>Ngày</th><th>Giờ vào</th><th>Giờ ra</th><th></th></tr>
+              </thead>
+              <tbody id="overrideTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div><!-- /settings-body -->
+
+      <div class="settings-footer">
+        <button class="btn-save"      onclick="saveSettings()">💾 Lưu cài đặt</button>
+        <button class="btn-reset-all" onclick="resetAllSettings()">↺ Đặt lại</button>
+        <button class="btn-setting"   onclick="importFromAdminPage()">📥 Nhận lịch đăng ký</button>
+        <span class="settings-saved-msg" id="savedMsg">✓ Đã lưu!</span>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- /wrapper -->
+
+<!-- ── Scripts (thứ tự quan trọng) ── -->
+<script src="js/settings.js"></script>
+<script src="js/attendance.js"></script>
+<script src="js/ranking.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

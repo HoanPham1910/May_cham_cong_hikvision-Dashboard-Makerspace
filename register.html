@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Đăng Ký Lịch Làm Đồ Án</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@700;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f5f3ef; --white: #ffffff; --surface2: #f0ede8;
+    --border: #e0dbd3; --border-dark: #c8c0b4;
+    --accent-in: #1a6b3c; --accent-in-light: #e8f5ee;
+    --accent-out: #b5341a; --accent-out-light: #fdf0ed;
+    --accent-blue: #1a4a8a; --accent-blue-light: #e8eef7;
+    --accent-yellow: #c17f00; --accent-yellow-light: #fdf6e3;
+    --text: #1a1714; --text-mid: #5a5147; --text-dim: #9a9088;
+    --ink: #1a1714; --navy: #1a2744;
+    --display: 'Fraunces', serif; --sans: 'Plus Jakarta Sans', sans-serif; --mono: 'Space Mono', monospace;
+    --radius: 12px; --shadow: 0 2px 12px rgba(26,23,20,0.08); --shadow-lg: 0 8px 32px rgba(26,23,20,0.12);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:var(--sans); min-height:100vh; }
+  body::before { content:''; position:fixed; inset:0; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E"); pointer-events:none; z-index:0; opacity:.6; }
+  .wrapper { position:relative; z-index:1; max-width:760px; margin:0 auto; padding:32px 20px 60px; }
+
+  /* Header */
+  header { background:var(--navy); border-radius:16px; padding:24px 30px; margin-bottom:24px; display:flex; align-items:center; justify-content:space-between; position:relative; overflow:hidden; box-shadow:var(--shadow-lg); }
+  header::before { content:''; position:absolute; left:0; top:0; bottom:0; width:5px; background:linear-gradient(180deg,#ffd700,#ff6b35,#c0392b); }
+  .header-left { display:flex; align-items:center; gap:14px; }
+  .header-icon { width:48px; height:48px; background:linear-gradient(135deg,#ffd700,#ffaa00); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:22px; box-shadow:0 0 0 3px rgba(255,215,0,0.2); flex-shrink:0; }
+  .header-text h1 { font-family:var(--display); font-size:18px; font-weight:900; color:#fff; letter-spacing:.02em; line-height:1.1; }
+  .header-text p  { font-family:var(--mono); font-size:10px; color:rgba(255,255,255,0.45); margin-top:4px; letter-spacing:.08em; text-transform:uppercase; }
+
+  /* Card */
+  .card { background:var(--white); border:1.5px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden; margin-bottom:18px; }
+  .card-header { background:var(--surface2); border-bottom:1.5px solid var(--border); padding:14px 22px; display:flex; align-items:center; gap:10px; }
+  .card-step { width:26px; height:26px; background:var(--navy); color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:var(--display); font-size:13px; font-weight:700; flex-shrink:0; }
+  .card-title { font-family:var(--display); font-size:15px; font-weight:700; color:var(--ink); }
+  .card-body  { padding:20px 22px; }
+
+  /* Fields & Buttons */
+  .id-row { display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; }
+  .field  { display:flex; flex-direction:column; gap:6px; flex:1; min-width:180px; }
+  .field label { font-family:var(--mono); font-size:9px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--text-dim); }
+  .field input { padding:10px 14px; border:1.5px solid var(--border); border-radius:9px; font-family:var(--sans); font-size:14px; color:var(--ink); background:var(--surface2); outline:none; transition:border-color .2s,background .2s; }
+  .field input:focus { border-color:var(--accent-blue); background:var(--white); }
+  .field input.confirmed { border-color:var(--accent-in); background:var(--accent-in-light); font-weight:700; }
+  .btn { padding:10px 22px; border-radius:9px; border:none; font-family:var(--sans); font-size:13px; font-weight:700; cursor:pointer; transition:all .2s; display:inline-flex; align-items:center; gap:8px; }
+  .btn-primary { background:var(--navy); color:#fff; box-shadow:0 2px 8px rgba(26,39,68,0.2); }
+  .btn-primary:hover { background:#243560; transform:translateY(-1px); }
+  .btn-primary:disabled { opacity:.5; cursor:not-allowed; transform:none; }
+  .btn-success { background:var(--accent-in); color:#fff; box-shadow:0 2px 8px rgba(26,107,60,0.2); }
+  .btn-success:hover { background:#155a33; transform:translateY(-1px); }
+  .btn-success:disabled { opacity:.5; cursor:not-allowed; transform:none; }
+  .btn-outline { background:var(--white); color:var(--text); border:1.5px solid var(--border); }
+  .btn-outline:hover { border-color:var(--accent-blue); color:var(--accent-blue); }
+
+  /* Student banner */
+  .student-banner { display:none; background:var(--accent-in-light); border:1.5px solid #b8dfc8; border-radius:9px; padding:12px 16px; margin-top:14px; align-items:center; gap:12px; }
+  .student-avatar { width:40px; height:40px; background:var(--accent-in); color:#fff; border-radius:10px; display:flex; align-items:center; justify-content:center; font-family:var(--display); font-size:18px; font-weight:700; flex-shrink:0; text-transform:uppercase; }
+  .student-info strong { font-size:14px; font-weight:700; color:var(--ink); display:block; }
+  .student-info span   { font-family:var(--mono); font-size:11px; color:var(--text-dim); }
+
+  /* Profile */
+  .profile-upload-area { display:flex; flex-direction:column; align-items:center; gap:10px; margin-bottom:22px; }
+  .avatar-preview { width:110px; height:110px; border-radius:50%; border:3px dashed var(--border-dark); display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; transition:border-color .2s,background .2s; overflow:hidden; background:var(--surface2); position:relative; }
+  .avatar-preview:hover { border-color:var(--accent-blue); background:var(--accent-blue-light); }
+  .avatar-preview:hover .avatar-overlay { opacity:1; }
+  .avatar-preview img { width:100%; height:100%; object-fit:cover; border-radius:50%; }
+  .avatar-placeholder { display:flex; flex-direction:column; align-items:center; gap:6px; pointer-events:none; }
+  .avatar-placeholder span:first-child { font-size:28px; }
+  .avatar-placeholder span:last-child  { font-family:var(--mono); font-size:9px; color:var(--text-dim); letter-spacing:.06em; text-transform:uppercase; }
+  .avatar-overlay { position:absolute; inset:0; background:rgba(26,74,138,0.6); display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity .2s; border-radius:50%; font-size:22px; }
+  .avatar-hint { font-family:var(--mono); font-size:10px; color:var(--text-dim); letter-spacing:.05em; }
+  .info-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .field-with-icon { display:flex; flex-direction:column; gap:6px; }
+  .field-with-icon label { font-family:var(--mono); font-size:9px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--text-dim); }
+  .input-icon-wrap { position:relative; display:flex; align-items:center; }
+  .input-icon-wrap .icon { position:absolute; left:12px; font-size:15px; pointer-events:none; line-height:1; }
+  .input-icon-wrap input { width:100%; padding:10px 14px 10px 38px; border:1.5px solid var(--border); border-radius:9px; font-family:var(--sans); font-size:14px; color:var(--ink); background:var(--surface2); outline:none; transition:border-color .2s,background .2s; }
+  .input-icon-wrap input:focus { border-color:var(--accent-blue); background:var(--white); }
+  .input-icon-wrap input.valid { border-color:var(--accent-in); background:var(--accent-in-light); }
+  .info-saved-badge { display:none; align-items:center; gap:7px; background:var(--accent-in-light); border:1.5px solid #b8dfc8; border-radius:8px; padding:8px 14px; font-family:var(--mono); font-size:11px; color:var(--accent-in); font-weight:600; margin-top:14px; }
+
+  /* Month picker */
+  .month-row { display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; }
+  input[type="month"] { padding:10px 14px; border:1.5px solid var(--border); border-radius:9px; font-family:var(--mono); font-size:13px; color:var(--ink); background:var(--surface2); outline:none; transition:border-color .2s; flex:1; min-width:160px; }
+  input[type="month"]:focus { border-color:var(--accent-blue); background:var(--white); }
+
+  /* Calendar */
+  .cal-section { display:none; }
+  .cal-info-bar { background:var(--accent-blue-light); border:1.5px solid #b8cfe8; border-radius:9px; padding:10px 14px; font-family:var(--sans); font-size:12px; color:var(--accent-blue); font-weight:500; margin-bottom:14px; line-height:1.5; }
+  .cal-grid-header { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-bottom:6px; }
+  .cal-dow { font-family:var(--sans); font-size:11px; font-weight:700; color:var(--text-mid); text-align:center; padding:6px 0; letter-spacing:.05em; }
+  .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:5px; margin-bottom:16px; }
+  .cal-day { background:var(--white); border:1.5px solid var(--border); border-radius:9px; padding:8px 4px 6px; min-height:72px; display:flex; flex-direction:column; align-items:center; cursor:pointer; transition:border-color .15s,background .15s,transform .1s; position:relative; user-select:none; }
+  .cal-day.selected.no-time  { border-color:#e8a020; background:#fffbf0; box-shadow:0 0 0 2px rgba(232,160,32,0.2); }
+  .cal-day.selected.no-time .cal-day-num { color:#b87a00; }
+  .cal-day.selected.has-time { background:var(--accent-in-light); border-color:#7dc8a0; box-shadow:0 0 0 2px rgba(26,107,60,0.15); }
+  .cal-day.selected.has-time .cal-day-num { color:var(--accent-in); }
+  .cal-day:hover:not(.empty):not(.past):not(.weekend-day) { border-color:var(--accent-blue); transform:translateY(-1px); box-shadow:0 4px 12px rgba(26,74,138,0.12); }
+  .cal-day.empty       { background:transparent; border-color:transparent; cursor:default; }
+  .cal-day.past        { opacity:.38; cursor:not-allowed; }
+  .cal-day.weekend-day { opacity:.4; cursor:not-allowed; background:var(--surface2); }
+  .cal-day.is-today    { box-shadow:0 0 0 2px var(--navy); }
+  .cal-day.is-today .cal-day-num { color:var(--navy); }
+  .cal-day-num { font-family:var(--display); font-size:14px; font-weight:700; color:var(--text-mid); line-height:1; }
+  .cal-status-icon { font-size:11px; margin-top:3px; line-height:1; min-height:14px; }
+  .cal-time-mini { font-family:var(--mono); font-size:8px; color:var(--accent-in); margin-top:2px; text-align:center; line-height:1.5; font-weight:600; }
+  .cal-day.selected.no-time .cal-time-mini { color:#b87a00; }
+  .cal-day.selected.no-time::after { content:'Chưa có giờ'; position:absolute; bottom:4px; font-family:var(--mono); font-size:7px; color:#b87a00; letter-spacing:.04em; }
+  .warn-badge { display:none; background:#fff3cd; border:1.5px solid #f0c040; border-radius:9px; padding:10px 14px; font-family:var(--sans); font-size:12px; color:#8a6000; font-weight:500; margin-bottom:14px; line-height:1.5; }
+
+  /* Summary */
+  .summary-bar { background:var(--white); border:1.5px solid var(--border); border-radius:var(--radius); padding:14px 20px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:14px; box-shadow:var(--shadow); }
+  .summary-chip { display:flex; align-items:center; gap:6px; font-family:var(--mono); font-size:11px; font-weight:600; padding:5px 12px; border-radius:20px; border:1.5px solid; }
+  .chip-green  { background:var(--accent-in-light);     color:var(--accent-in);     border-color:#b8dfc8; }
+  .chip-orange { background:#fff3cd;                    color:#8a6000;              border-color:#f0c040; }
+  .chip-blue   { background:var(--accent-blue-light);   color:var(--accent-blue);   border-color:#b8cfe8; }
+  .chip-yellow { background:var(--accent-yellow-light); color:var(--accent-yellow); border-color:#f0d898; }
+  .summary-bar .spacer { flex:1; }
+
+  /* Submit */
+  .submit-section { display:none; background:linear-gradient(135deg,var(--accent-in-light),#f0f7ff); border:1.5px solid #b8dfc8; border-radius:var(--radius); padding:20px 22px; text-align:center; box-shadow:var(--shadow); }
+  .submit-section p { font-family:var(--sans); font-size:13px; color:var(--text-mid); margin-bottom:14px; line-height:1.6; }
+  .submit-warn { background:#fff3cd; border:1.5px solid #f0c040; border-radius:8px; padding:9px 14px; font-family:var(--sans); font-size:12px; color:#8a6000; margin-bottom:14px; line-height:1.5; display:none; }
+
+  /* Toast */
+  .toast { position:fixed; bottom:24px; right:24px; padding:13px 18px; border-radius:10px; font-family:var(--sans); font-size:13px; font-weight:600; box-shadow:var(--shadow-lg); z-index:999; display:none; align-items:center; gap:10px; animation:slideUp .25s ease; }
+  @keyframes slideUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+  .toast.success { background:var(--accent-in-light);   color:var(--accent-in);   border:1.5px solid #b8dfc8; }
+  .toast.error   { background:var(--accent-out-light);  color:var(--accent-out);  border:1.5px solid #f0b8b0; }
+  .toast.info    { background:var(--accent-blue-light); color:var(--accent-blue); border:1.5px solid #b8cfe8; }
+  .spinner { width:16px; height:16px; border:2.5px solid rgba(255,255,255,0.3); border-top-color:#fff; border-radius:50%; animation:spin .7s linear infinite; display:none; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  /* ════════════════════════════════════════
+     SCROLL WHEEL TIME PICKER
+  ════════════════════════════════════════ */
+  .tp-overlay {
+    position:fixed; inset:0;
+    background:rgba(26,23,20,0.55);
+    backdrop-filter:blur(7px);
+    z-index:300;
+    display:flex; align-items:center; justify-content:center;
+    padding:20px;
+  }
+
+  .tp-card {
+    background:var(--white);
+    border:1.5px solid var(--border);
+    border-radius:20px;
+    padding:26px 26px 20px;
+    width:100%; max-width:380px;
+    box-shadow:var(--shadow-lg);
+    animation:popIn .2s ease;
+  }
+  @keyframes popIn { from{opacity:0;transform:scale(.94)} to{opacity:1;transform:scale(1)} }
+
+  .tp-title { font-family:var(--display); font-size:17px; font-weight:700; color:var(--ink); margin-bottom:3px; }
+  .tp-date  { font-family:var(--mono); font-size:11px; color:var(--text-dim); margin-bottom:20px; letter-spacing:.06em; }
+
+  .tp-pickers {
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:14px;
+    margin-bottom:22px;
+  }
+
+  .tp-picker-wrap { display:flex; flex-direction:column; align-items:center; gap:8px; }
+
+  .tp-picker-label {
+    font-family:var(--mono); font-size:9px; font-weight:700;
+    letter-spacing:.1em; text-transform:uppercase; color:var(--text-dim);
+    align-self:flex-start;
+  }
+
+  /* Big time display above each drum */
+  .tp-time-display {
+    font-family:var(--display); font-size:30px; font-weight:700;
+    color:var(--text-dim); letter-spacing:.03em;
+    background:var(--surface2); border:1.5px solid var(--border);
+    border-radius:12px; padding:10px 0;
+    width:100%; text-align:center;
+    transition:border-color .2s, color .2s, background .2s;
+  }
+  .tp-time-display.set {
+    color:var(--navy);
+    border-color:var(--accent-blue);
+    background:var(--accent-blue-light);
+  }
+  .tp-time-display.in-set  { color:var(--accent-in);   border-color:var(--accent-in);   background:var(--accent-in-light); }
+  .tp-time-display.out-set { color:var(--accent-out);  border-color:var(--accent-out);  background:var(--accent-out-light); }
+
+  /* Drum container: holds H drum + colon + M drum */
+  .tp-drum-row {
+    display:flex; align-items:center; gap:0;
+    background:var(--surface2);
+    border:1.5px solid var(--border);
+    border-radius:14px;
+    overflow:hidden;
+    width:100%;
+    position:relative;
+  }
+
+  /* Selection highlight strip (middle item) */
+  .tp-drum-row::before {
+    content:'';
+    position:absolute; left:0; right:0;
+    top:50%; transform:translateY(-50%);
+    height:42px;
+    background:rgba(26,74,138,0.07);
+    border-top:2px solid rgba(26,74,138,0.25);
+    border-bottom:2px solid rgba(26,74,138,0.25);
+    pointer-events:none; z-index:2;
+  }
+
+  /* Top/bottom fade */
+  .tp-drum-row::after {
+    content:'';
+    position:absolute; inset:0;
+    background:linear-gradient(to bottom, var(--surface2) 0%, transparent 28%, transparent 72%, var(--surface2) 100%);
+    pointer-events:none; z-index:3;
+  }
+
+  /* Individual scrollable column */
+  .tp-drum {
+    flex:1;
+    height:168px;
+    overflow-y:scroll;
+    scrollbar-width:none;
+    -ms-overflow-style:none;
+    scroll-snap-type:y mandatory;
+    /* padding so first/last items land at center */
+    padding:63px 0;
+  }
+  .tp-drum::-webkit-scrollbar { display:none; }
+
+  /* Colon separator */
+  .tp-drum-colon {
+    width:20px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--display); font-size:22px; font-weight:700;
+    color:var(--text-dim); z-index:4; position:relative;
+    user-select:none; pointer-events:none;
+  }
+
+  /* Each item in drum */
+  .tp-drum-item {
+    height:42px;
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--display); font-size:19px; font-weight:700;
+    color:var(--text-dim);
+    scroll-snap-align:center;
+    cursor:pointer;
+    transition:color .1s, transform .1s;
+    user-select:none;
+  }
+  .tp-drum-item:hover { color:var(--accent-blue); }
+  .tp-drum-item.active {
+    color:var(--navy);
+    transform:scale(1.12);
+  }
+
+  .tp-actions { display:flex; gap:8px; }
+
+  @media (max-width:500px) {
+    .id-row,.month-row,.info-grid { flex-direction:column; grid-template-columns:1fr; }
+    header { flex-wrap:wrap; gap:10px; }
+    .cal-day { min-height:60px; }
+    .tp-pickers { gap:8px; }
+    .tp-time-display { font-size:24px; }
+    .tp-drum-item { font-size:17px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <header>
+    <div class="header-left">
+      <div class="header-icon">📅</div>
+      <div class="header-text">
+        <h1>Đăng Ký Lịch Làm Đồ Án</h1>
+        <p>Maker Space · Đăng ký lịch làm việc</p>
+      </div>
+    </div>
+  </header>
+
+  <!-- Step 1 -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-step">1</div>
+      <div class="card-title">Nhập mã sinh viên</div>
+    </div>
+    <div class="card-body">
+      <div class="id-row">
+        <div class="field">
+          <label>Mã số sinh viên (ID)</label>
+          <input type="text" id="studentId" placeholder="Ví dụ: 2021001234"
+                 onkeydown="if(event.key==='Enter') confirmStudent()">
+        </div>
+        <button class="btn btn-primary" onclick="confirmStudent()">Xác nhận →</button>
+      </div>
+      <div class="student-banner" id="studentBanner">
+        <div class="student-avatar" id="studentAvatar">?</div>
+        <div class="student-info">
+          <strong id="studentName">—</strong>
+          <span id="studentIdDisplay">—</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 1.5 -->
+  <div class="card" id="profileCard" style="opacity:.45;pointer-events:none">
+    <div class="card-header">
+      <div class="card-step" style="background:linear-gradient(135deg,#ff6a00,#ff8c42)">★</div>
+      <div class="card-title">Thông tin cá nhân</div>
+    </div>
+    <div class="card-body">
+      <div class="profile-upload-area">
+        <div class="avatar-preview" id="avatarPreview" onclick="document.getElementById('avatarInput').click()">
+          <div class="avatar-placeholder" id="avatarPlaceholder"><span>📷</span><span>Thêm ảnh</span></div>
+          <div class="avatar-overlay">✏️</div>
+        </div>
+        <div class="avatar-hint">Nhấn để chọn ảnh · JPG, PNG tối đa 5MB</div>
+        <input type="file" id="avatarInput" accept="image/*" style="display:none" onchange="previewAvatar(event)">
+      </div>
+      <div class="info-grid">
+        <div class="field-with-icon">
+          <label>Gmail</label>
+          <div class="input-icon-wrap">
+            <span class="icon">✉️</span>
+            <input type="email" id="profileGmail" placeholder="tên@gmail.com" oninput="validateEmail(this)" onblur="validateEmail(this)">
+          </div>
+        </div>
+        <div class="field-with-icon">
+          <label>Số điện thoại</label>
+          <div class="input-icon-wrap">
+            <span class="icon">📱</span>
+            <input type="tel" id="profilePhone" placeholder="0901 234 567" oninput="validatePhone(this)" onblur="validatePhone(this)">
+          </div>
+        </div>
+      </div>
+      <div class="info-saved-badge" id="infoSavedBadge">✓ Thông tin đã được lưu</div>
+      <div style="display:flex;justify-content:flex-end;margin-top:16px">
+        <button class="btn btn-primary" onclick="savePersonalInfo()">Lưu thông tin →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 2 -->
+  <div class="card" id="step2Card" style="opacity:.45;pointer-events:none">
+    <div class="card-header">
+      <div class="card-step">2</div>
+      <div class="card-title">Chọn tháng đăng ký</div>
+    </div>
+    <div class="card-body">
+      <div class="month-row">
+        <div class="field">
+          <label>Tháng</label>
+          <input type="month" id="monthPicker">
+        </div>
+        <button class="btn btn-primary" onclick="loadCalendar()">Xem lịch →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 3 -->
+  <div class="card cal-section" id="step3Card">
+    <div class="card-header">
+      <div class="card-step">3</div>
+      <div class="card-title" id="calTitle">Chọn ngày làm việc</div>
+    </div>
+    <div class="card-body">
+      <div class="cal-info-bar">
+        📌 <strong>Nhấn vào ngày</strong> để chọn và đặt giờ · Nhấn lại vào ngày đã chọn để chỉnh giờ · Mỗi ngày <strong>phải có giờ</strong> mới được gửi.
+      </div>
+      <div class="warn-badge" id="warnBadge"></div>
+      <div class="summary-bar">
+        <span class="summary-chip chip-green"  id="chipSelected">✓ 0 ngày</span>
+        <span class="summary-chip chip-orange" id="chipNoTime" style="display:none">⚠ 0 chưa có giờ</span>
+        <span class="summary-chip chip-blue"   id="chipMonth">Tháng —</span>
+        <span class="summary-chip chip-yellow" id="chipHours">⏱ 0 giờ</span>
+        <div class="spacer"></div>
+        <button class="btn btn-outline" onclick="clearAll()" style="padding:6px 14px;font-size:12px">🗑 Xóa tất cả</button>
+      </div>
+      <div class="cal-grid-header" id="calHeader"></div>
+      <div class="cal-grid"        id="calGrid"></div>
+    </div>
+  </div>
+
+  <!-- Submit -->
+  <div class="submit-section" id="submitSection">
+    <p>✅ Bạn đã chọn <strong id="submitCount">0</strong> ngày trong tháng <strong id="submitMonth">—</strong>.</p>
+    <div class="submit-warn" id="submitWarn"></div>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+      <button class="btn btn-outline"  onclick="loadCalendar()">↺ Chỉnh sửa lại</button>
+      <button class="btn btn-success"  onclick="submitSchedule()" id="btnSubmit">
+        <div class="spinner" id="submitSpinner"></div>🚀 Gửi đăng ký
+      </button>
+    </div>
+  </div>
+
+</div><!-- /wrapper -->
+
+<!-- ════════════════════════════════════════
+     SCROLL WHEEL TIME PICKER POPUP
+════════════════════════════════════════ -->
+<div class="tp-overlay" id="tpOverlay" style="display:none">
+  <div class="tp-card">
+    <div class="tp-title">⏰ Đặt giờ làm việc</div>
+    <div class="tp-date" id="tpDate">—</div>
+
+    <div class="tp-pickers">
+
+      <!-- Giờ vào -->
+      <div class="tp-picker-wrap">
+        <div class="tp-picker-label">🟢 Giờ đến</div>
+        <div class="tp-time-display" id="dispIn">00:00</div>
+        <div class="tp-drum-row">
+          <div class="tp-drum" id="drumInH"  data-tid="inH"></div>
+          <div class="tp-drum-colon">:</div>
+          <div class="tp-drum" id="drumInM"  data-tid="inM"></div>
+        </div>
+      </div>
+
+      <!-- Giờ ra -->
+      <div class="tp-picker-wrap">
+        <div class="tp-picker-label">🔴 Giờ về</div>
+        <div class="tp-time-display" id="dispOut">00:00</div>
+        <div class="tp-drum-row">
+          <div class="tp-drum" id="drumOutH" data-tid="outH"></div>
+          <div class="tp-drum-colon">:</div>
+          <div class="tp-drum" id="drumOutM" data-tid="outM"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="tp-actions">
+      <button class="btn btn-primary" onclick="confirmTimePick()" style="flex:1">✓ Xác nhận</button>
+      <button class="btn btn-outline" onclick="closeTimePicker()">Hủy</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = window.location.origin;
+const DOW = ['CN','T2','T3','T4','T5','T6','T7'];
+
+let confirmed    = false;
+let empId        = '';
+let empName      = '';
+let currentMonth = '';
+let selectedDays = {};
+let editingDate  = '';
+let avatarDataUrl= '';
+
+/* ══════════════════════════════════════════
+   SCROLL WHEEL TIME PICKER
+══════════════════════════════════════════ */
+
+// Live state for the 4 drum values
+const tp = { inH:0, inM:0, outH:0, outM:0 };
+
+function p2(n) { return String(n).padStart(2,'0'); }
+
+// Build a drum column
+function buildDrum(el, count, initVal, key) {
+  el.innerHTML = '';
+  for (let i = 0; i < count; i++) {
+    const item = document.createElement('div');
+    item.className = 'tp-drum-item';
+    item.textContent = p2(i);
+    item.dataset.v   = i;
+    el.appendChild(item);
+  }
+  // Attach scroll listener
+  let t;
+  el.addEventListener('scroll', () => {
+    clearTimeout(t);
+    t = setTimeout(() => snapDrum(el, key), 90);
+  });
+  // Scroll to initial (instant, deferred for layout)
+  requestAnimationFrame(() => scrollDrumTo(el, initVal, false));
+}
+
+function scrollDrumTo(el, val, smooth) {
+  const itemH = 42;
+  el.scrollTo({ top: val * itemH, behavior: smooth ? 'smooth' : 'instant' });
+  highlightDrum(el, val);
+}
+
+function snapDrum(el, key) {
+  const itemH = 42;
+  const idx   = Math.round(el.scrollTop / itemH);
+  const max   = el.children.length - 1;
+  const clamped = Math.max(0, Math.min(idx, max));
+  el.scrollTo({ top: clamped * itemH, behavior: 'smooth' });
+  tp[key] = clamped;
+  highlightDrum(el, clamped);
+  refreshDisplays();
+}
+
+function highlightDrum(el, val) {
+  Array.from(el.children).forEach(c => c.classList.toggle('active', Number(c.dataset.v) === val));
+}
+
+function refreshDisplays() {
+  const inStr  = `${p2(tp.inH)}:${p2(tp.inM)}`;
+  const outStr = `${p2(tp.outH)}:${p2(tp.outM)}`;
+  const di = document.getElementById('dispIn');
+  const dout = document.getElementById('dispOut');
+  di.textContent   = inStr;
+  dout.textContent = outStr;
+  di.className   = 'tp-time-display in-set';
+  dout.className = 'tp-time-display out-set';
+}
+
+function openTimePicker(dateStr) {
+  const dow = new Date(dateStr+'T00:00:00').getDay();
+  if (dow===0||dow===6) return;
+  if (dateStr < new Date().toISOString().split('T')[0]) return;
+
+  if (!(dateStr in selectedDays)) {
+    selectedDays[dateStr] = {};
+    refreshDay(dateStr);
+    updateSummary();
+  }
+
+  editingDate = dateStr;
+  const [y,m,d] = dateStr.split('-');
+  document.getElementById('tpDate').textContent =
+    `${DOW[new Date(dateStr+'T00:00:00').getDay()]} ${d}/${m}/${y}`;
+
+  const ov = selectedDays[dateStr] || {};
+  const [ih,im]  = ov.in  ? ov.in.split(':').map(Number)  : [7,  0];
+  const [oh,om]  = ov.out ? ov.out.split(':').map(Number) : [17, 0];
+  tp.inH=ih; tp.inM=im; tp.outH=oh; tp.outM=om;
+
+  // Build all 4 drums
+  buildDrum(document.getElementById('drumInH'),  24, ih, 'inH');
+  buildDrum(document.getElementById('drumInM'),  60, im, 'inM');
+  buildDrum(document.getElementById('drumOutH'), 24, oh, 'outH');
+  buildDrum(document.getElementById('drumOutM'), 60, om, 'outM');
+
+  refreshDisplays();
+  document.getElementById('tpOverlay').style.display = 'flex';
+}
+
+function closeTimePicker() {
+  document.getElementById('tpOverlay').style.display = 'none';
+  editingDate = '';
+}
+
+document.getElementById('tpOverlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('tpOverlay')) closeTimePicker();
+});
+
+// Tap on an item → jump to it
+document.addEventListener('click', e => {
+  const item = e.target.closest('.tp-drum-item');
+  if (!item) return;
+  const drum = item.closest('.tp-drum');
+  if (!drum) return;
+  const key = drum.dataset.tid;
+  const val = Number(item.dataset.v);
+  tp[key] = val;
+  scrollDrumTo(drum, val, true);
+  refreshDisplays();
+});
+
+function confirmTimePick() {
+  const inStr  = `${p2(tp.inH)}:${p2(tp.inM)}`;
+  const outStr = `${p2(tp.outH)}:${p2(tp.outM)}`;
+  if (inStr >= outStr) { showToast('Giờ đến phải trước giờ về','error'); return; }
+  selectedDays[editingDate] = { in: inStr, out: outStr };
+  refreshDay(editingDate);
+  updateSummary();
+  closeTimePicker();
+  showToast(`✓ Đặt giờ ${inStr} – ${outStr} cho ngày ${editingDate.split('-').reverse().join('/')}`, 'success');
+}
+
+/* ══════════════════════════════════════════
+   STUDENT / CALENDAR LOGIC
+══════════════════════════════════════════ */
+
+async function confirmStudent() {
+  const val = document.getElementById('studentId').value.trim();
+  if (!val) { showToast('Vui lòng nhập mã sinh viên','error'); return; }
+  try {
+    const res  = await fetch(`${API}/api/users`);
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error);
+    const user = data.users.find(u => String(u.id) === String(val));
+    if (!user) throw new Error(`Không tìm thấy sinh viên ID: ${val}`);
+    empId=String(user.id); empName=user.name; confirmed=true;
+    document.getElementById('studentAvatar').textContent    = empName.charAt(0).toUpperCase();
+    document.getElementById('studentName').textContent      = empName;
+    document.getElementById('studentIdDisplay').textContent = `ID: ${empId}`;
+    document.getElementById('studentBanner').style.display  = 'flex';
+    document.getElementById('studentId').classList.add('confirmed');
+    ['profileCard','step2Card'].forEach(id => {
+      const el = document.getElementById(id);
+      el.style.opacity='1'; el.style.pointerEvents='auto';
+    });
+    const now = new Date();
+    document.getElementById('monthPicker').value =
+      `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    showToast(`✓ Chào ${empName}!`,'success');
+    document.getElementById('profileCard').scrollIntoView({behavior:'smooth',block:'start'});
+  } catch(e) { showToast(e.message,'error'); }
+}
+
+function previewAvatar(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (file.size > 5*1024*1024) { showToast('Ảnh không được quá 5MB','error'); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    avatarDataUrl = e.target.result;
+    const preview = document.getElementById('avatarPreview');
+    document.getElementById('avatarPlaceholder').style.display = 'none';
+    const oldImg = preview.querySelector('img'); if (oldImg) oldImg.remove();
+    const img = document.createElement('img'); img.src = avatarDataUrl;
+    preview.insertBefore(img, preview.querySelector('.avatar-overlay'));
+    showToast('✓ Ảnh đã được chọn','success');
+  };
+  reader.readAsDataURL(file);
+}
+
+function validateEmail(input) { input.classList.toggle('valid', /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.value) && input.value.length>0); }
+function validatePhone(input)  { input.classList.toggle('valid', /^(0|\+84)[0-9]{8,10}$/.test(input.value.replace(/\s/g,'')) && input.value.length>0); }
+
+async function savePersonalInfo() {
+  const gmail=document.getElementById('profileGmail').value.trim();
+  const phone=document.getElementById('profilePhone').value.trim();
+  if (!gmail&&!phone&&!avatarDataUrl) { showToast('Vui lòng điền ít nhất một thông tin','error'); return; }
+  if (gmail&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(gmail)) { showToast('Gmail không hợp lệ','error'); return; }
+  if (phone&&!/^(0|\+84)[0-9]{8,10}$/.test(phone.replace(/\s/g,''))) { showToast('Số điện thoại không hợp lệ','error'); return; }
+  const btn=document.querySelector('#profileCard .btn-primary');
+  btn.disabled=true; btn.textContent='⏳ Đang lưu...';
+  try {
+    const payload={empId,name:empName};
+    if (avatarDataUrl) payload.avatar=avatarDataUrl;
+    if (gmail) payload.gmail=gmail;
+    if (phone) payload.phone=phone;
+    const res=await fetch(`${API}/api/student/profile`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const data=await res.json();
+    if (!data.success) throw new Error(data.error);
+    if (avatarDataUrl&&empId) { try{localStorage.setItem(`avatar_${empId}`,avatarDataUrl);}catch(e){} }
+    document.getElementById('infoSavedBadge').style.display='flex';
+    showToast('✓ Đã lưu thông tin lên server!','success');
+    setTimeout(()=>{document.getElementById('step2Card').scrollIntoView({behavior:'smooth',block:'start'});},400);
+  } catch(e) { showToast('Lỗi lưu: '+e.message,'error'); }
+  finally { btn.disabled=false; btn.textContent='Lưu thông tin →'; }
+}
+
+async function loadCalendar() {
+  if (!confirmed) { showToast('Vui lòng xác nhận sinh viên trước','error'); return; }
+  const month=document.getElementById('monthPicker').value;
+  if (!month) { showToast('Vui lòng chọn tháng','error'); return; }
+  currentMonth=month;
+  try {
+    const res=await fetch(`${API}/api/schedule?empId=${empId}&month=${month}`);
+    const data=await res.json();
+    selectedDays=(data.success&&data.days)?data.days:{};
+  } catch(e) { selectedDays={}; }
+  buildCalendar(month);
+  document.getElementById('step3Card').style.display='block';
+  document.getElementById('step3Card').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function buildCalendar(month) {
+  const [year,mon]=month.split('-').map(Number);
+  const daysInMonth=new Date(year,mon,0).getDate();
+  const firstDow=new Date(year,mon-1,1).getDay();
+  const startBlank=(firstDow+6)%7;
+  const todayStr=new Date().toISOString().split('T')[0];
+
+  document.getElementById('calHeader').innerHTML=
+    ['T2','T3','T4','T5','T6','T7','CN'].map(d=>`<div class="cal-dow">${d}</div>`).join('');
+  document.getElementById('calTitle').textContent=`Chọn ngày làm việc — Tháng ${mon}/${year}`;
+
+  let html='';
+  for(let i=0;i<startBlank;i++) html+='<div class="cal-day empty"></div>';
+  for(let d=1;d<=daysInMonth;d++) {
+    const dateStr=`${year}-${p2(mon)}-${p2(d)}`;
+    const dow=new Date(dateStr+'T00:00:00').getDay();
+    const isWknd=dow===0||dow===6, isPast=dateStr<todayStr, isToday=dateStr===todayStr;
+    const isSel=dateStr in selectedDays;
+    const ov=selectedDays[dateStr]||{};
+    const hasTime=isSel&&ov.in&&ov.out, noTime=isSel&&!hasTime;
+    const si=isSel?(hasTime?'✓':'⏰'):'';
+    const tm=isSel?(hasTime?`${ov.in}<br>${ov.out}`:'Nhấn để<br>đặt giờ'):'';
+    const cls=['cal-day',isWknd?'weekend-day':'',isPast?'past':'',
+      isSel&&hasTime?'selected has-time':'',isSel&&noTime?'selected no-time':'',
+      isToday?'is-today':''].filter(Boolean).join(' ');
+    html+=`<div class="${cls}" id="day-${dateStr}" onclick="handleDayClick('${dateStr}')">
+      <div class="cal-day-num">${d}</div>
+      <div class="cal-status-icon">${si}</div>
+      ${tm?`<div class="cal-time-mini">${tm}</div>`:''}
+    </div>`;
+  }
+  document.getElementById('calGrid').innerHTML=html;
+  updateSummary();
+}
+
+function handleDayClick(dateStr) {
+  const dow=new Date(dateStr+'T00:00:00').getDay();
+  if(dow===0||dow===6) return;
+  if(dateStr<new Date().toISOString().split('T')[0]) return;
+  if(!(dateStr in selectedDays)){selectedDays[dateStr]={};refreshDay(dateStr);updateSummary();}
+  setTimeout(()=>openTimePicker(dateStr),50);
+}
+
+function refreshDay(dateStr) {
+  const el=document.getElementById(`day-${dateStr}`); if(!el) return;
+  const isSel=dateStr in selectedDays, ov=selectedDays[dateStr]||{};
+  const hasTime=isSel&&ov.in&&ov.out, noTime=isSel&&!hasTime;
+  el.classList.remove('selected','has-time','no-time');
+  if(isSel&&hasTime) el.classList.add('selected','has-time');
+  if(isSel&&noTime)  el.classList.add('selected','no-time');
+  let si=el.querySelector('.cal-status-icon'), tm=el.querySelector('.cal-time-mini');
+  if(!si){si=document.createElement('div');si.className='cal-status-icon';el.appendChild(si);}
+  if(!tm){tm=document.createElement('div');tm.className='cal-time-mini';  el.appendChild(tm);}
+  if(!isSel){si.textContent='';tm.textContent='';}
+  else if(hasTime){si.textContent='✓';tm.innerHTML=`${ov.in}<br>${ov.out}`;}
+  else{si.textContent='⏰';tm.innerHTML='Nhấn để<br>đặt giờ';}
+}
+
+function updateSummary() {
+  const total=Object.keys(selectedDays).length;
+  const noTime=Object.entries(selectedDays).filter(([,v])=>!v.in||!v.out).length;
+  let totalMins=0;
+  for(const[,ov] of Object.entries(selectedDays)){
+    if(!ov.in||!ov.out) continue;
+    const i=ov.in.split(':').map(Number),o=ov.out.split(':').map(Number);
+    totalMins+=(o[0]*60+o[1])-(i[0]*60+i[1]);
+  }
+  const hrs=Math.floor(totalMins/60),mins=totalMins%60;
+  const[year,mon]=currentMonth.split('-').map(Number);
+  document.getElementById('chipSelected').textContent=`✓ ${total} ngày`;
+  document.getElementById('chipMonth').textContent=`Tháng ${mon}/${year}`;
+  document.getElementById('chipHours').textContent=`⏱ ${hrs}h${mins>0?mins+'p':''}`;
+  const cn=document.getElementById('chipNoTime');
+  cn.textContent=`⚠ ${noTime} chưa có giờ`; cn.style.display=noTime>0?'flex':'none';
+  const wb=document.getElementById('warnBadge');
+  if(noTime>0){wb.style.display='block';wb.innerHTML=`⚠️ Còn <strong>${noTime} ngày</strong> chưa được đặt giờ.`;}
+  else wb.style.display='none';
+  document.getElementById('submitSection').style.display=total>0?'block':'none';
+  document.getElementById('submitCount').textContent=total;
+  document.getElementById('submitMonth').textContent=`${mon}/${year}`;
+  const sw=document.getElementById('submitWarn');
+  if(noTime>0){sw.style.display='block';sw.innerHTML=`⚠️ Còn <strong>${noTime} ngày chưa có giờ</strong>. Hệ thống sẽ bỏ qua khi lưu.`;}
+  else sw.style.display='none';
+}
+
+function clearAll() {
+  if(!confirm('Xóa tất cả ngày đã chọn?')) return;
+  selectedDays={}; buildCalendar(currentMonth);
+}
+
+async function submitSchedule() {
+  const complete=Object.fromEntries(Object.entries(selectedDays).filter(([,v])=>v.in&&v.out));
+  if(Object.keys(complete).length===0){showToast('Chưa có ngày nào được đặt giờ đầy đủ','error');return;}
+  const btn=document.getElementById('btnSubmit'),sp=document.getElementById('submitSpinner');
+  btn.disabled=true; sp.style.display='block';
+  try{
+    const res=await fetch(`${API}/api/schedule`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({empId,month:currentMonth,days:complete})});
+    const data=await res.json();
+    if(!data.success) throw new Error(data.error);
+    selectedDays=complete; buildCalendar(currentMonth);
+    showToast(`✅ Đã gửi lịch thành công! ${Object.keys(complete).length} ngày`,'success');
+  }catch(e){showToast('Lỗi gửi lịch: '+e.message,'error');}
+  finally{btn.disabled=false;sp.style.display='none';}
+}
+
+let toastTimer;
+function showToast(msg,type='info'){
+  clearTimeout(toastTimer);
+  const t=document.getElementById('toast');
+  t.className=`toast ${type}`;t.textContent=msg;t.style.display='flex';
+  toastTimer=setTimeout(()=>{t.style.display='none';},3200);
+}
+
+// Init
+const now=new Date();
+document.getElementById('monthPicker').value=
+  `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+document.getElementById('studentId').focus();
+</script>
+</body>
+</html>
