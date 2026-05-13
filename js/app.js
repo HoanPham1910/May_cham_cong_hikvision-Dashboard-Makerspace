@@ -2,7 +2,9 @@
 //  app.js — Events, Users, Stats, Clock, Filters
 // ═══════════════════════════════════════════════════════
 
-const API_BASE    = 'http://localhost:5000';
+const API_BASE = `${window.location.protocol}//${window.location.hostname}:8080`;
+
+
 const REFRESH_SEC = 5;
 
 let allEvents     = [];
@@ -28,6 +30,21 @@ function updateClock() {
 setInterval(updateClock, 1000);
 updateClock();
 
+
+// ── Init ────────────────────────────────────────────────
+window.onload = function () {
+  console.log("===== WINDOW ONLOAD =====");
+  console.log("hostname =", window.location.hostname);
+  console.log("protocol =", window.location.protocol);
+  console.log("host =", window.location.host);
+  console.log("port =", window.location.port);
+  console.log("origin =", window.location.origin);
+  console.log("href =", window.location.href);
+  console.log("API_BASE =", API_BASE);
+
+  fetchEvents();
+  fetchUsersMap();
+};
 // ── Page switching ──────────────────────────────────────
 function showPage(page, btn) {
   document.querySelectorAll('.page-tab').forEach(t => t.classList.remove('active'));

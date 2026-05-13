@@ -10,6 +10,8 @@ import threading
 import time as time_mod
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 import os
+import re
+import random
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -17,7 +19,7 @@ from functools import wraps
 # ── MongoDB ──────────────────────────────────────────────────────────────────
 from pymongo import MongoClient, ASCENDING
 
-MONGO_URI = "mongodb://localhost:27017"
+MONGO_URI = "mongodb://45.76.152.99:27017"
 MONGO_DB  = "makerspace"
 
 try:
@@ -27,19 +29,23 @@ try:
     students_col = db_mongo["students"]
     hours_col    = db_mongo["daily_hours"]
     maillog_col  = db_mongo["mail_log"]
+    schedule_col = db_mongo["schedules"]
+    settings_col = db_mongo["attendance_settings"]
+    settings_col.create_index([("empId", ASCENDING), ("month", ASCENDING)], unique=True)
+    schedule_col.create_index([("empId", ASCENDING), ("month", ASCENDING)], unique=True)
     hours_col.create_index([("week",  ASCENDING), ("empId", ASCENDING)])
     hours_col.create_index([("date",  ASCENDING), ("empId", ASCENDING)], unique=True)
     print("[MongoDB] Kết nối thành công ✓")
 except Exception as e:
-    db_mongo = students_col = hours_col = maillog_col = None
+    db_mongo = students_col = hours_col = maillog_col = schedule_col = settings_col = None
     print(f"[MongoDB] Không kết nối được: {e}")
 
 # ─────────────────────────────────────────────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, static_folder=BASE_DIR, static_url_path='')
 CORS(app)
-
-DEVICE_IP  = "192.168.68.127"
+otp_store: dict = {} 
+DEVICE_IP  = "192.168.1.66"
 DEVICE_URL = f"https://{DEVICE_IP}/ISAPI/AccessControl/AcsEvent?format=json"
 AUTH_USER  = "admin"
 AUTH_PASS  = "Indruino@2024"
@@ -48,13 +54,13 @@ SMTP_PORT  = 587
 SMTP_USER  = "conghoan191003@gmail.com"
 SMTP_PASS  = "hrma mdru cwmw swsz"
 
-REGISTER_ADMIN_PASS = "Indruino@2024"
+REGISTER_ADMIN_PASS = "123456"
 TZ_ICT = timezone(timedelta(hours=7))
 
 SYNC_INTERVAL_SEC  = 5 * 60
 LATE_GRACE_MINUTES = 120
 
-scheduleDB: dict = {}
+# scheduleDB: dict = {}
 
 # ─────────────────────────── helpers ────────────────────────────────────────
 
@@ -371,46 +377,140 @@ def compute_status(base: dict, today: date) -> dict:
     date_str   = base.get("date", "")
     shift_type = base.get("shiftType", "")
     emp_id     = base.get("employeeNo", "")
+
     if shift_type != "normalShift":
         return {**base, "status": "off", "actualIn": "", "actualOut": "", "note": "Ngày nghỉ"}
+
     try:
         day_date = date.fromisoformat(date_str)
     except Exception:
         return {**base, "status": "off", "actualIn": "", "actualOut": "", "note": "Lỗi ngày"}
+
     if day_date > today:
         return {**base, "status": "future", "actualIn": "", "actualOut": "", "note": "Chưa đến"}
+
     sign_in_t  = parse_hhmm(base.get("signInTime",  ""))
     sign_out_t = parse_hhmm(base.get("signOutTime", ""))
-    first_in, last_out = get_actual_times(date_str, emp_id)
-    actual_in_str  = first_in.strftime("%H:%M")  if first_in  else ""
-    actual_out_str = last_out.strftime("%H:%M")  if last_out  else ""
+
+    # ── Ưu tiên đọc từ MongoDB (data đã sync) ────────────────────────────────
+    first_in: datetime | None = None
+    last_out: datetime | None = None
+
+    if hours_col is not None:
+        cached = hours_col.find_one({"date": date_str, "empId": emp_id})
+        if cached:
+            ci_str = cached.get("checkIn",  "")
+            co_str = cached.get("checkOut", "")
+            try:
+                if ci_str:
+                    first_in = datetime.combine(
+                        day_date,
+                        datetime.strptime(ci_str, "%H:%M").time(),
+                        tzinfo=TZ_ICT
+                    )
+                if co_str:
+                    last_out = datetime.combine(
+                        day_date,
+                        datetime.strptime(co_str, "%H:%M").time(),
+                        tzinfo=TZ_ICT
+                    )
+            except Exception:
+                pass
+
+    # ── Nếu là hôm nay → query thiết bị để lấy data real-time mới nhất ──────
+    if day_date == today:
+        fi, lo = get_actual_times(date_str, emp_id)
+        if fi:
+            first_in = fi
+        if lo:
+            last_out = lo
+
+    # ── Nếu cả 2 nguồn đều không có → fallback query thiết bị (ngày gần đây) ─
+    if first_in is None and (today - day_date).days <= 3:
+        fi, lo = get_actual_times(date_str, emp_id)
+        if fi:
+            first_in = fi
+        if lo:
+            last_out = lo
+
+    actual_in_str  = first_in.strftime("%H:%M") if first_in  else ""
+    actual_out_str = last_out.strftime("%H:%M") if last_out else ""
+
     now = datetime.now(tz=TZ_ICT)
+
+    # ── Chưa check-in ────────────────────────────────────────────────────────
     if first_in is None:
         if sign_in_t:
-            deadline = datetime.combine(day_date, sign_in_t, tzinfo=TZ_ICT) + timedelta(minutes=LATE_GRACE_MINUTES)
+            deadline = datetime.combine(day_date, sign_in_t, tzinfo=TZ_ICT) \
+                       + timedelta(minutes=LATE_GRACE_MINUTES)
             if now >= deadline:
-                return {**base, "status": "absent", "actualIn": "", "actualOut": "",
-                        "note": f"Vắng – chưa check-in sau {deadline.strftime('%H:%M')}"}
-        return {**base, "status": "future", "actualIn": "", "actualOut": "", "note": "Chưa check-in"}
-    late_note = ""; is_late = False
+                return {
+                    **base,
+                    "status":    "absent",
+                    "actualIn":  "",
+                    "actualOut": "",
+                    "note":      f"Vắng – chưa check-in sau {deadline.strftime('%H:%M')}",
+                }
+        return {
+            **base,
+            "status":    "future",
+            "actualIn":  "",
+            "actualOut": "",
+            "note":      "Chưa check-in",
+        }
+
+    # ── Kiểm tra đi trễ ──────────────────────────────────────────────────────
+    late_note = ""
+    is_late   = False
     if sign_in_t:
-        dl = datetime.combine(day_date, sign_in_t, tzinfo=TZ_ICT) + timedelta(minutes=LATE_GRACE_MINUTES)
+        dl = datetime.combine(day_date, sign_in_t, tzinfo=TZ_ICT) \
+             + timedelta(minutes=LATE_GRACE_MINUTES)
         if first_in > dl:
             is_late   = True
             late_note = f"Đi trễ – vào {actual_in_str} (hạn {dl.strftime('%H:%M')})"
-    is_absent_out = False; absent_note = ""
+
+    # ── Kiểm tra không check-out ─────────────────────────────────────────────
+    # Chỉ đánh absent_out nếu:
+    #   1. Không có checkout
+    #   2. Ca đã kết thúc (now > scheduled_out)
+    #   3. Là hôm nay HOẶC có trong MongoDB (ngày quá khứ chỉ phán nếu đã sync đủ)
+    is_absent_out = False
+    absent_note   = ""
+
     if last_out is None and sign_out_t:
         sched_out = datetime.combine(day_date, sign_out_t, tzinfo=TZ_ICT)
         if now > sched_out:
-            is_absent_out = True
-            absent_note   = f"Vắng – không check-out (ca kết thúc {sign_out_t.strftime('%H:%M')})"
+            # Ngày quá khứ (không phải hôm nay): chỉ đánh absent_out
+            # nếu MongoDB có bản ghi cho ngày đó (tức là đã sync, checkout thực sự trống)
+            if day_date == today:
+                is_absent_out = True
+                absent_note   = f"Vắng – không check-out (ca kết thúc {sign_out_t.strftime('%H:%M')})"
+            elif hours_col is not None:
+                cached_check = hours_col.find_one({"date": date_str, "empId": emp_id})
+                if cached_check is not None:
+                    # Bản ghi tồn tại trong DB nhưng checkOut trống → thực sự không checkout
+                    is_absent_out = True
+                    absent_note   = f"Vắng – không check-out (ca kết thúc {sign_out_t.strftime('%H:%M')})"
+                # Nếu không có bản ghi DB → chưa sync, không phán
+
+    # ── Tổng hợp trạng thái ──────────────────────────────────────────────────
     if is_absent_out:
-        status = "absent_out"; note = absent_note + (f" | {late_note}" if is_late else "")
+        status = "absent_out"
+        note   = absent_note + (f" | {late_note}" if is_late else "")
     elif is_late:
-        status = "late"; note = late_note
+        status = "late"
+        note   = late_note
     else:
-        status = "present"; note = "Đúng giờ"
-    return {**base, "status": status, "actualIn": actual_in_str, "actualOut": actual_out_str, "note": note}
+        status = "present"
+        note   = "Đúng giờ"
+
+    return {
+        **base,
+        "status":    status,
+        "actualIn":  actual_in_str,
+        "actualOut": actual_out_str,
+        "note":      note,
+    }
 
 
 # ─────────────────────────── routes – dashboard (port 5000) ─────────────────
@@ -564,25 +664,47 @@ def reset_week():
 
 @app.route('/api/schedule', methods=['GET'])
 def get_schedule():
-    emp_id = request.args.get('empId','').strip(); month = request.args.get('month','').strip()
+    emp_id = request.args.get('empId','').strip()
+    month  = request.args.get('month','').strip()
     if not emp_id or not month:
         return jsonify({"success": False, "error": "Thiếu empId hoặc month"}), 400
-    days = scheduleDB.get(emp_id,{}).get(month,{})
+    
+    if schedule_col is None:
+        return jsonify({"success": False, "error": "MongoDB chưa kết nối"}), 503
+    
+    doc  = schedule_col.find_one({"empId": emp_id, "month": month}, {"_id": 0})
+    days = doc.get("days", {}) if doc else {}
     return jsonify({"success": True, "empId": emp_id, "month": month, "days": days, "count": len(days)})
+
 
 @app.route('/api/schedule', methods=['POST'])
 def save_schedule():
-    body = request.get_json(silent=True) or {}
-    emp_id = body.get('empId','').strip(); month = body.get('month','').strip()
-    days = body.get('days',{})
+    body   = request.get_json(silent=True) or {}
+    emp_id = body.get('empId','').strip()
+    month  = body.get('month','').strip()
+    days   = body.get('days', {})
+    print(f"[Schedule] POST empId={emp_id} month={month} days={len(days)}")
     if not emp_id or not month:
         return jsonify({"success": False, "error": "Thiếu empId hoặc month"}), 400
+    
+    if schedule_col is None:
+        print("[Schedule] ❌ schedule_col is None!")
+        return jsonify({"success": False, "error": "MongoDB chưa kết nối"}), 503
+
     cleaned = {}
     for ds, times in days.items():
         if not isinstance(times, dict): continue
-        it = times.get('in','').strip(); ot = times.get('out','').strip()
-        if it and ot: cleaned[ds] = {"in": it, "out": ot}
-    scheduleDB.setdefault(emp_id,{})[month] = cleaned
+        it = times.get('in','').strip()
+        ot = times.get('out','').strip()
+        if it and ot:
+            cleaned[ds] = {"in": it, "out": ot}
+    
+    schedule_col.update_one(
+        {"empId": emp_id, "month": month},
+        {"$set":         {"days": cleaned, "updatedAt": datetime.now(timezone.utc)},
+         "$setOnInsert": {"empId": emp_id, "month": month, "createdAt": datetime.now(timezone.utc)}},
+        upsert=True
+    )
     return jsonify({"success": True, "empId": emp_id, "month": month,
                     "saved": len(cleaned), "message": f"Đã lưu {len(cleaned)} ngày"})
 
@@ -592,11 +714,11 @@ def save_student_profile():
     data = request.get_json(force=True) or {}
     emp_id = str(data.get("empId","")).strip()
     if not emp_id: return jsonify({"success": False, "error": "Thiếu empId"}), 400
-    upd = {"updatedAt": datetime.utcnow()}
+    upd = {"updatedAt": datetime.now(timezone.utc)}
     for f in ("avatar","gmail","phone","name"):
         if data.get(f): upd[f] = data[f]
     students_col.update_one({"empId": emp_id},
-        {"$set": upd, "$setOnInsert": {"empId": emp_id, "createdAt": datetime.utcnow()}}, upsert=True)
+        {"$set": upd, "$setOnInsert": {"empId": emp_id, "createdAt": datetime.now(timezone.utc)}}, upsert=True)
     return jsonify({"success": True, "empId": emp_id})
 
 @app.route('/api/student/profile/<emp_id>', methods=['GET'])
@@ -670,8 +792,99 @@ def send_warning_mail():
         return jsonify({"success": True, "sentTo": recipient, "testMode": test_mode})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+@app.route('/api/otp/send', methods=['POST'])
+def send_otp():
+    body   = request.get_json(silent=True) or {}
+    emp_id = str(body.get('empId', '')).strip()
+    gmail  = str(body.get('gmail', '')).strip()
+    if not emp_id or not gmail:
+        return jsonify({"success": False, "error": "Thiếu empId hoặc gmail"}), 400
+    if not re.match(r'^[^\s@]+@[^\s@]+\.[^\s@]+$', gmail):
+        return jsonify({"success": False, "error": "Gmail không hợp lệ"}), 400
+
+    otp     = str(random.randint(100000, 999999))
+    expire  = datetime.now(tz=TZ_ICT) + timedelta(minutes=10)
+    otp_store[emp_id] = {"otp": otp, "gmail": gmail, "expire": expire}
+
+    try:
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = f"🔐 Mã xác nhận Maker Space: {otp}"
+        msg['From']    = f"Maker Space <{SMTP_USER}>"
+        msg['To']      = gmail
+        html_body = f"""
+        <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;border:1px solid #e0dbd3">
+          <div style="background:#1a2744;padding:26px 30px">
+            <h2 style="color:#fff;margin:0;font-size:19px">🔐 Xác nhận Gmail</h2>
+            <p style="color:rgba(255,255,255,0.5);margin:5px 0 0;font-size:12px">Maker Space · Đăng ký lịch làm việc</p>
+          </div>
+          <div style="padding:28px 30px">
+            <p style="color:#1a1714;font-size:14px">Mã OTP của bạn là:</p>
+            <div style="background:#e8f5ee;border:2px solid #7dc8a0;border-radius:12px;padding:20px;text-align:center;margin:16px 0">
+              <div style="font-size:42px;font-weight:900;color:#1a6b3c;letter-spacing:10px;font-family:monospace">{otp}</div>
+            </div>
+            <p style="color:#9a9088;font-size:12px">Mã có hiệu lực trong <strong>10 phút</strong>. Không chia sẻ mã này cho người khác.</p>
+          </div>
+          <div style="background:#f5f3ef;padding:14px 30px;font-size:11px;color:#9a9088">Maker Space · ID: {emp_id}</div>
+        </div>"""
+        msg.attach(MIMEText(html_body, 'html'))
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+            server.starttls()
+            server.login(SMTP_USER, SMTP_PASS)
+            server.sendmail(SMTP_USER, gmail, msg.as_string())
+        return jsonify({"success": True, "message": f"Đã gửi OTP tới {gmail}"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
+@app.route('/api/otp/verify', methods=['POST'])
+def verify_otp():
+    body   = request.get_json(silent=True) or {}
+    emp_id = str(body.get('empId', '')).strip()
+    otp    = str(body.get('otp', '')).strip()
+    if not emp_id or not otp:
+        return jsonify({"success": False, "error": "Thiếu empId hoặc otp"}), 400
+    record = otp_store.get(emp_id)
+    if not record:
+        return jsonify({"success": False, "error": "Chưa gửi OTP hoặc OTP đã hết hạn"}), 400
+    if datetime.now(tz=TZ_ICT) > record["expire"]:
+        otp_store.pop(emp_id, None)
+        return jsonify({"success": False, "error": "OTP đã hết hạn, vui lòng gửi lại"}), 400
+    if otp != record["otp"]:
+        return jsonify({"success": False, "error": "OTP không đúng"}), 400
+    otp_store.pop(emp_id, None)
+    return jsonify({"success": True, "gmail": record["gmail"]})
+@app.route('/api/settings/<emp_id>/<month>', methods=['GET'])
+def get_settings_api(emp_id, month):
+    if settings_col is None:
+        return jsonify({"success": False, "error": "MongoDB chưa kết nối"}), 503
+    doc = settings_col.find_one({"empId": emp_id, "month": month}, {"_id": 0})
+    return jsonify({"success": True, "settings": doc or {}})
+
+@app.route('/api/settings', methods=['POST'])
+def save_settings_api():
+    if settings_col is None:
+        return jsonify({"success": False, "error": "MongoDB chưa kết nối"}), 503
+    body   = request.get_json(silent=True) or {}
+    emp_id = str(body.get("empId","")).strip()
+    month  = str(body.get("month","")).strip()
+    if not emp_id or not month:
+        return jsonify({"success": False, "error": "Thiếu empId hoặc month"}), 400
+    
+    # Chỉ lưu các field settings, không lưu empId/month vào $set
+    cfg_data = {
+        "signIn":       body.get("signIn", ""),
+        "signOut":      body.get("signOut", ""),
+        "graceMinutes": body.get("graceMinutes", 120),
+        "overrides":    body.get("overrides", {}),
+        "updatedAt":    datetime.now(timezone.utc),
+    }
+    settings_col.update_one(
+        {"empId": emp_id, "month": month},
+        {"$set": cfg_data,
+         "$setOnInsert": {"empId": emp_id, "month": month, "createdAt": datetime.now(timezone.utc)}},
+        upsert=True
+    )
+    return jsonify({"success": True})
 # ─────────────────────────── register_app (port 5001) ───────────────────────
 
 DASHBOARD_PORT = 5000
@@ -723,8 +936,20 @@ def _reg_get_profile(emp_id):
 @register_app.route('/<path:filename>')
 def _reg_static(filename):
     return send_from_directory(BASE_DIR, filename)
+@register_app.route('/api/otp/send', methods=['POST'])
+def _reg_otp_send():
+    return send_otp()
 
+@register_app.route('/api/otp/verify', methods=['POST'])
+def _reg_otp_verify():
+    return verify_otp()
+@register_app.route('/api/settings/<emp_id>/<month>', methods=['GET'])
+def _reg_get_settings(emp_id, month):
+    return get_settings_api(emp_id, month)
 
+@register_app.route('/api/settings', methods=['POST'])
+def _reg_save_settings():
+    return save_settings_api()
 # ─────────────────────────── main ───────────────────────────────────────────
 
 if __name__ == '__main__':

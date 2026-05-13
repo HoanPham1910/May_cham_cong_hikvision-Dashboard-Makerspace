@@ -32,35 +32,51 @@ function closeModal(e) {
 }
 
 // ── Tải dữ liệu điểm danh ───────────────────────────────
+// Đọc settings từ MongoDB thay vì localStorage
 async function loadAttendance() {
   const month = document.getElementById('modalMonth').value;
   document.getElementById('attendanceContent').innerHTML =
     '<div class="status-msg"><div class="spinner"></div><span>Đang tải...</span></div>';
 
   try {
-    const res  = await fetch(`${API_BASE}/api/attendance?id=${currentEmployeeId}&month=${month}`);
-    const json = await res.json();
-    if (!json.success) throw new Error(json.error);
+    const [attRes, settRes] = await Promise.all([
+      fetch(`${API_BASE}/api/attendance?id=${currentEmployeeId}&month=${month}`),
+      fetch(`${API_BASE}/api/settings/${currentEmployeeId}/${month}`)
+    ]);
+    const attJson  = await attRes.json();
+    const settJson = await settRes.json();
+    if (!attJson.success) throw new Error(attJson.error);
 
-    let days = json.days || [];
+    let days = attJson.days || [];
     if (days.length === 0) {
       document.getElementById('attendanceContent').innerHTML =
         '<div class="status-msg">📭 Không có dữ liệu tháng này</div>';
       return;
     }
 
-    days = applySettingsOverrides(days, currentEmployeeId, month);
+    // ✅ FIX: kiểm tra có data thực sự, không dùng length > 2
+    const dbSett = settJson.success && settJson.settings;
+    const hasRealSettings = dbSett &&
+      (dbSett.signIn || dbSett.signOut ||
+       Object.keys(dbSett.overrides || {}).length > 0);
+
+    let cfg;
+    if (hasRealSettings) {
+      // Có data trên MongoDB → dùng luôn
+      cfg = { signIn: '', signOut: '', overrides: {}, graceMinutes: 120, ...dbSett };
+      console.log('[Settings] Loaded from MongoDB ✓', cfg);
+    } else {
+      // Không có → dùng in-memory (default rỗng)
+      cfg = getSettings(currentEmployeeId, month);
+      console.log('[Settings] Using in-memory/default', cfg);
+    }
+
+    days = days.map(d => recomputeStatus(d, cfg));
     renderAttendanceCalendar(days, month);
   } catch(e) {
     document.getElementById('attendanceContent').innerHTML =
       `<div class="status-msg">⚠ ${e.message}</div>`;
   }
-}
-
-// ── Áp dụng settings override lên từng ngày ─────────────
-function applySettingsOverrides(days, empId, month) {
-  const cfg = getSettings(empId, month);
-  return days.map(d => recomputeStatus(d, cfg));
 }
 
 // ── Helpers ──────────────────────────────────────────────
@@ -83,7 +99,7 @@ function makeDateTime(dateStr, hhmm) {
 // ── Tính lại trạng thái từng ngày ───────────────────────
 function recomputeStatus(day, cfg) {
   const dateStr     = day.date;
-  const dayOverride = cfg.overrides[dateStr] || {};
+  const dayOverride = (cfg.overrides || {})[dateStr] || {};
 
   // ── Xác định giờ ca cho ngày này ──────────────────────
   // Ưu tiên: override ngày > giờ ca chung (settings) > KHÔNG dùng giờ từ thiết bị
@@ -118,15 +134,15 @@ function recomputeStatus(day, cfg) {
   // Ngày trong quá khứ / hôm nay nhưng không có ca → bỏ qua, hiện "Nghỉ"
   if (!hasSchedule) {
     // Nếu vẫn có check-in thực tế thì hiện đúng giờ dù không có ca cài đặt
-    if (day.actualIn) {
-      return {
-        ...day,
-        signInTime:  '',
-        signOutTime: '',
-        status: 'present',
-        note:   `Check-in ${day.actualIn}${day.actualOut ? ' – ' + day.actualOut : ''} (không có ca đặt trước)`,
-      };
-    }
+    // if (day.actualIn) {
+    //   return {
+    //     ...day,
+    //     signInTime:  '',
+    //     signOutTime: '',
+    //     status: 'present',
+    //     note:   `Check-in ${day.actualIn}${day.actualOut ? ' – ' + day.actualOut : ''} (không có ca đặt trước)`,
+    //   };
+    // }
     return { ...day, signInTime: '', signOutTime: '', status: 'off', note: 'Không có ca' };
   }
 

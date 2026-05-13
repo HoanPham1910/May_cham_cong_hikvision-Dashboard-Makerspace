@@ -11,7 +11,7 @@ function getSettings(empId, month) {
   const key = settingsKey(empId, month);
   if (!settingsStore[key]) {
     settingsStore[key] = {
-      signIn:       '',     // không còn mặc định cứng
+      signIn:       '',
       signOut:      '',
       graceMinutes: 120,
       overrides:    {}
@@ -20,13 +20,53 @@ function getSettings(empId, month) {
   return settingsStore[key];
 }
 
+// ── Lưu settings lên MongoDB ─────────────────────────────
+async function pushSettingsToDB(empId, month, cfg) {
+  try {
+    await fetch(`${API_BASE}/api/settings`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ empId, month, ...cfg })
+    });
+  } catch(e) {
+    console.warn('[Settings] Không lưu được lên server:', e);
+  }
+}
+
+// ── Đọc settings từ MongoDB, merge vào settingsStore ────
+async function pullSettingsFromDB(empId, month) {
+  try {
+    const res  = await fetch(`${API_BASE}/api/settings/${empId}/${month}`);
+    const data = await res.json();
+    if (data.success && data.settings) {
+      const s   = data.settings;
+      const key = settingsKey(empId, month);
+      settingsStore[key] = {
+        signIn:       s.signIn       || '',
+        signOut:      s.signOut      || '',
+        graceMinutes: s.graceMinutes ?? 120,
+        overrides:    s.overrides    || {}
+      };
+      // ✅ return true chỉ khi có data thực sự
+      return !!(s.signIn || s.signOut || Object.keys(s.overrides || {}).length > 0);
+    }
+  } catch(e) {
+    console.warn('[Settings] Không đọc được từ server:', e);
+  }
+  return false;
+}
 // ── Mở modal cài đặt ────────────────────────────────────
-function SettingAttendance() {
+async function SettingAttendance() {
   const month = document.getElementById('modalMonth').value;
   if (!currentEmployeeId) { alert('Vui lòng chọn sinh viên trước.'); return; }
 
   document.getElementById('settingsSubtitle').textContent =
     `${currentEmployeeName} · Tháng ${month}`;
+
+  document.getElementById('savedMsg').style.display = 'none';
+  document.getElementById('settingsModal').style.display = 'flex';
+
+  await pullSettingsFromDB(currentEmployeeId, month);
 
   const cfg = getSettings(currentEmployeeId, month);
   document.getElementById('settingSignIn').value  = cfg.signIn  || '';
@@ -35,8 +75,6 @@ function SettingAttendance() {
   updateGraceDisplay(document.getElementById('graceSlider'));
 
   buildOverrideTable(month, cfg);
-  document.getElementById('savedMsg').style.display = 'none';
-  document.getElementById('settingsModal').style.display = 'flex';
 }
 
 function closeSettingsModal(e) {
@@ -52,7 +90,6 @@ function updateGraceDisplay(slider) {
   const label = h > 0 ? `${h}h${m > 0 ? m + 'p' : ''}` : `${m} phút`;
   document.getElementById('graceDisplay').textContent = label;
 
-  // Chỉ tính giờ deadline nếu có giờ vào ca
   const signIn = document.getElementById('settingSignIn').value;
   if (signIn) {
     const [sh, sm]  = signIn.split(':').map(Number);
@@ -84,13 +121,12 @@ function buildOverrideTable(month, cfg) {
     const dateStr   = `${year}-${String(mon).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const dow       = new Date(dateStr).getDay();
     const isWeekend = dow === 0 || dow === 6;
-    const ov        = cfg.overrides[dateStr] || {};
+    const ov        = (cfg.overrides || {})[dateStr] || {};
     const inVal     = ov.in  || '';
     const outVal    = ov.out || '';
     const hasOv     = ov.in || ov.out;
     const dowLabel  = ['CN','T2','T3','T4','T5','T6','T7'][dow];
 
-    // placeholder dùng giờ ca chung nếu có, không thì để trống
     const phIn  = cfg.signIn  || '';
     const phOut = cfg.signOut || '';
 
@@ -139,11 +175,10 @@ function clearOverrideRow(dateStr) {
 }
 
 // ── Lưu cài đặt ─────────────────────────────────────────
-function saveSettings() {
+async function saveSettings() {
   const month = document.getElementById('modalMonth').value;
   const cfg   = getSettings(currentEmployeeId, month);
 
-  // Lưu đúng những gì người dùng nhập, không ép mặc định
   cfg.signIn       = document.getElementById('settingSignIn').value  || '';
   cfg.signOut      = document.getElementById('settingSignOut').value || '';
   cfg.graceMinutes = parseInt(document.getElementById('graceSlider').value);
@@ -159,7 +194,10 @@ function saveSettings() {
     if (inVal || outVal) cfg.overrides[dateStr] = { in: inVal, out: outVal };
   }
 
+  await pushSettingsToDB(currentEmployeeId, month, cfg);
+
   const msg = document.getElementById('savedMsg');
+  msg.textContent   = '✓ Đã lưu!';
   msg.style.display = 'inline-block';
   setTimeout(() => { msg.style.display = 'none'; }, 2200);
 
@@ -167,12 +205,16 @@ function saveSettings() {
 }
 
 // ── Đặt lại về mặc định ─────────────────────────────────
-function resetAllSettings() {
+async function resetAllSettings() {
   if (!confirm('Đặt lại tất cả cài đặt về mặc định?')) return;
 
   const month = document.getElementById('modalMonth').value;
   const key   = settingsKey(currentEmployeeId, month);
   delete settingsStore[key];
+
+  await pushSettingsToDB(currentEmployeeId, month, {
+    signIn: '', signOut: '', graceMinutes: 120, overrides: {}
+  });
 
   const cfg = getSettings(currentEmployeeId, month);
   document.getElementById('settingSignIn').value  = cfg.signIn  || '';
@@ -180,6 +222,7 @@ function resetAllSettings() {
   document.getElementById('graceSlider').value    = cfg.graceMinutes;
   updateGraceDisplay(document.getElementById('graceSlider'));
   buildOverrideTable(month, cfg);
+  loadAttendance();
 }
 
 // ── Nhập lịch từ backend (từ trang đăng ký của sinh viên) ──
@@ -200,8 +243,10 @@ async function importFromAdminPage() {
     }
 
     const cfg = getSettings(currentEmployeeId, month);
-    // Merge: lịch đăng ký ghi đè vào overrides
     Object.assign(cfg.overrides, data.days);
+
+    await pushSettingsToDB(currentEmployeeId, month, cfg);
+
     buildOverrideTable(month, cfg);
     loadAttendance();
 
